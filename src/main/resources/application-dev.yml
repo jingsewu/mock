@@ -1,0 +1,33 @@
+server:
+  tomcat:
+    uri-encoding: UTF-8
+  port: 8888
+  maxHttpRequestHeaderSize: 102400
+
+spring:
+  jackson:
+    date-format: 'yyyy-MM-dd HH:mm:ss'
+    time-zone: 'Asia/Shanghai'
+
+  servlet:
+    multipart:
+      max-file-size: 200MB
+      max-request-size: 200MB
+
+  application:
+    name: mock
+
+  datasource:
+    # 当使用 Druid 的时候，这个不用写也没关系，Druid 能自动推断出来。如果用默认的 HikariCP 的话，这个是必须要正确填写的。
+    driverClassName: com.mysql.cj.jdbc.Driver
+    # 使用druid数据源
+    type: com.zaxxer.hikari.HikariDataSource
+    url: jdbc:mysql://${DATABASE_IP:192.168.83.130}:3306/openwes?useSSL=false&serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf8&allowPublicKeyRetrieval=true
+    username: ${DATABASE_USERNAME:root}
+    password: ${DATABASE_PASSWORD:root}
+
+
+api:
+  call:
+    host: localhost
+    key: 8PfoQ487yFiyemeVjbc0w5bfpglXb8u3

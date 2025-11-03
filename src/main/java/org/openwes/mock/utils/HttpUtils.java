@@ -1,4 +1,4 @@
-package org.openwes.mock;
+package org.openwes.mock.utils;
 
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
@@ -33,6 +33,28 @@ public class HttpUtils {
                 log.error("call response error, response body is null： {}", request);
             }
             log.info("call response: {}", response.body().string());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public String get(String url) {
+
+        Request request = new Request.Builder()
+                .url(url)
+                .get()
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (response.body() == null) {
+                log.error("get response error, response body is null： {}", request);
+                return null;
+            }
+
+            String body = response.body().string();
+            log.info("get response: {}", body);
+
+            return body;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

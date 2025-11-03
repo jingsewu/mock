@@ -39,3 +39,4 @@ out/
 ### VS Code ###
 .vscode/
 >>>>>>> bb3ef47 (feat: add mock)
+/.claude/settings.local.json

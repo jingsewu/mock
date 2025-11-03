@@ -1,6 +1,7 @@
-package org.openwes.mock;
+package org.openwes.mock.scheduler;
 
 import lombok.extern.slf4j.Slf4j;
+import org.openwes.mock.utils.HttpUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -28,7 +29,6 @@ public class MockCreateOrderScheduler {
     public void schedule() {
 
         try {
-
             createInboundPlanOrder();
         } catch (Exception e) {
             log.error("create inbound plan order error", e);

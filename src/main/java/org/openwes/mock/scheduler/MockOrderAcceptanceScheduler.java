@@ -1,6 +1,8 @@
-package org.openwes.mock;
+package org.openwes.mock.scheduler;
 
 import lombok.extern.slf4j.Slf4j;
+import org.openwes.mock.utils.HttpUtils;
+import org.openwes.mock.utils.JsonUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -10,7 +12,6 @@ import org.springframework.stereotype.Component;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Component
 @Slf4j

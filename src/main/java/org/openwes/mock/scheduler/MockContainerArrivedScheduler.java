@@ -1,17 +1,16 @@
 package org.openwes.mock.scheduler;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.MediaType;
-import okhttp3.RequestBody;
+import org.openwes.mock.config.MockConfig;
 import org.openwes.mock.constants.WorkStationStatusEnum;
 import org.openwes.mock.dto.WorkLocationExtend;
 import org.openwes.mock.dto.WorkStationDTO;
 import org.openwes.mock.dto.WorkStationVO;
-import org.openwes.mock.utils.HttpUtils;
+import org.openwes.mock.service.ApiService;
+import org.openwes.mock.service.DatabaseQueryService;
+import org.openwes.mock.service.StationService;
 import org.openwes.mock.utils.JsonUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
@@ -21,23 +20,22 @@ import java.util.*;
 
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class MockContainerArrivedScheduler {
 
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
-
-    @Autowired
-    private HttpUtils httpUtils;
-
-    @Value("${api.call.host}")
-    private String host;
+    private final DatabaseQueryService databaseQueryService;
+    private final StationService stationService;
+    private final ApiService apiService;
+    private final MockConfig mockConfig;
 
     @Scheduled(cron = "0/3 * * * * *")
     public void schedule() {
 
-        String sql = "select container_code,container_face,destinations,task_code,container_task_type from e_container_task " +
-                "where task_status = 'NEW' ";
-        List<Map<String, Object>> result = jdbcTemplate.queryForList(sql);
+        if (!mockConfig.isOpenMockContainerArrived()) {
+            return;
+        }
+
+        List<Map<String, Object>> result = databaseQueryService.queryContainerTasks();
         if (result.isEmpty()) {
             return;
         }
@@ -68,10 +66,8 @@ public class MockContainerArrivedScheduler {
                 "taskStatus", "WCS_SUCCEEDED",
                 "robotCode", "robot_1",
                 "locationCode", "locationCode_1");
-        RequestBody body = RequestBody.create(JsonUtils.obj2String(requestBody), MediaType.get("application/json"));
 
-        httpUtils.call("http://" + host + ":9010/api/execute?apiType=CONTAINER_TASK_STATUS_REPORT", requestBody);
-
+        apiService.call("api/execute?apiType=CONTAINER_TASK_STATUS_REPORT", requestBody);
     }
 
     private boolean sendArrived(String containerCode, String containerFace, Object destinations, String taskCode) {
@@ -80,12 +76,7 @@ public class MockContainerArrivedScheduler {
 
         Long stationId = stationIds.getFirst();
 
-        String response = httpUtils.get("http://" + host + ":9040/api?stationCode=" + stationId);
-        if (response == null) {
-            return false;
-        }
-
-        WorkStationVO workStationVO = JsonUtils.string2Object(response, WorkStationVO.class);
+        WorkStationVO workStationVO = stationService.getWorkStationVO(stationId);
         if (workStationVO == null || workStationVO.getWorkStationStatus() == WorkStationStatusEnum.OFFLINE) {
             return false;
         }
@@ -120,8 +111,7 @@ public class MockContainerArrivedScheduler {
                 "workStationId", stationIds.getFirst(),
                 "containerDetails", objects);
 
-        httpUtils.call("http://" + host + ":9010/api/execute?apiType=CONTAINER_ARRIVE", requestBody);
-
+        apiService.call("api/execute?apiType=CONTAINER_ARRIVE", requestBody);
         return true;
     }
 

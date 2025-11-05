@@ -142,6 +142,16 @@ public class WorkStationVO {
     @NoArgsConstructor
     public static class SkuArea {
         private String pickType;
+        private List<SkuTaskInfo> pickingViews;
+
+        @Data
+        @AllArgsConstructor
+        @NoArgsConstructor
+        public static class SkuTaskInfo {
+            private SkuMainDataDTO skuMainDataDTO;
+            private SkuBatchAttributeDTO skuBatchAttributeDTO;
+            private List<OperationTaskDTO> operationTaskDTOS;
+        }
     }
 
     @Data

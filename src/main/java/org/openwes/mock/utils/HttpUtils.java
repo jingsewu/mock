@@ -30,9 +30,9 @@ public class HttpUtils {
 
         try (Response response = client.newCall(request).execute()) {
             if (response.body() == null) {
-                log.error("call response error, response body is null： {}", request);
+                log.error("call url: {} response error, response body is null： {}", url, request);
             }
-            log.info("call response: {}", response.body().string());
+            log.info("call url: {} response: {}", url, response.body().string());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -47,14 +47,35 @@ public class HttpUtils {
 
         try (Response response = client.newCall(request).execute()) {
             if (response.body() == null) {
-                log.error("get response error, response body is null： {}", request);
+                log.error("get url: {} response error, response body is null： {}", url, request);
                 return null;
             }
 
             String body = response.body().string();
-            log.info("get response: {}", body);
+            log.info("get url: {} response: {}", url, body);
 
             return body;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void put(String url, Object requestBody) {
+
+        RequestBody body = RequestBody.create(JsonUtils.obj2String(requestBody), MediaType.get("application/json"));
+
+        Request request = new Request.Builder()
+                .url(url)
+                .header("Content-Type", "application/json")
+                .header("X-API-KEY", apiKey)
+                .put(body)
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (response.body() == null) {
+                log.error("put url: {} response error, response body is null： {}", url, request);
+            }
+            log.info("put url: {} response: {}", url, response.body().string());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

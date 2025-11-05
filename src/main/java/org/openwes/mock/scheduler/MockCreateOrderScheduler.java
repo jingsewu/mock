@@ -1,54 +1,61 @@
 package org.openwes.mock.scheduler;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.openwes.mock.utils.HttpUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.openwes.mock.config.MockConfig;
+import org.openwes.mock.service.ApiService;
+import org.openwes.mock.service.DatabaseQueryService;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
 
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class MockCreateOrderScheduler {
 
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+    private final DatabaseQueryService databaseQueryService;
+    private final ApiService apiService;
+    private final MockConfig mockConfig;
 
-    @Autowired
-    private HttpUtils httpUtils;
+    @Scheduled(cron = "0/30 * * * * *")
+    public void scheduleCreateInboundPlanOrder() {
 
-    @Value("${api.call.host}")
-    private String host;
-
-    @Scheduled(cron = "0 0/1 * * * *")
-    public void schedule() {
+        if (!mockConfig.isOpenMockCreateInboundPlanOrder()) {
+            return;
+        }
 
         try {
             createInboundPlanOrder();
         } catch (Exception e) {
             log.error("create inbound plan order error", e);
         }
+    }
+
+    @Scheduled(cron = "0/10 * * * * *")
+    public void scheduleCreateOutboundPlanOrder() {
+        if (!mockConfig.isOpenMockCreateOutboundPlanOrder()) {
+            return;
+        }
 
         createOutboundPlanOrder();
     }
 
     private void createInboundPlanOrder() {
-        String sql = "select warehouse_code as warehouseCode,owner_code as ownerCode,sku_code as skuCode from m_sku_main_data limit 10";
-        List<Map<String, Object>> result = jdbcTemplate.queryForList(sql);
+        List<Map<String, Object>> result = databaseQueryService.querySku();
         if (result.isEmpty()) {
             return;
         }
 
         for (Map<String, Object> map : result) {
-            map.put("qtyRestocked", 1000);
+            map.put("qtyRestocked", new Random().nextInt(1, 1000));
         }
 
-        String warehouseCode = result.get(0).get("warehouseCode").toString();
+        String warehouseCode = result.getFirst().get("warehouseCode").toString();
 
         Map<String, Object> requestBody = Map.of("customerOrderNo", UUID.randomUUID().toString(),
                 "lpnCode", UUID.randomUUID().toString(),
@@ -56,31 +63,28 @@ public class MockCreateOrderScheduler {
                 "storageType", "STORAGE",
                 "details", result);
 
-        httpUtils.call("http://" + host + ":9010/api/execute?apiType=ORDER_INBOUND_CREATE", requestBody);
+        apiService.call("api/execute?apiType=ORDER_INBOUND_CREATE", requestBody);
 
     }
 
     private void createOutboundPlanOrder() {
-        String sql = "select min(t2.sku_code) as skuCode,min(t2.owner_code) as ownerCode,min(t2.warehouse_code) as warehouseCode," +
-                "sum(t1.available_qty) from w_container_stock t1 inner join m_sku_main_data t2 on t1.sku_id = t2.id" +
-                " where t1.available_qty>0  GROUP BY t2.id limit 10;";
-        List<Map<String, Object>> result = jdbcTemplate.queryForList(sql);
+        List<Map<String, Object>> result = databaseQueryService.querySkuBatchStock();
         if (result.isEmpty()) {
             return;
         }
 
         for (Map<String, Object> map : result) {
-            map.put("qtyRequired", 5);
+            int availableQty = (int) map.get("available_qty");
+            map.put("qtyRequired", availableQty == 1 ? 1 : new Random().nextInt(1, availableQty));
         }
 
-        String warehouseCode = result.get(0).get("warehouseCode").toString();
+        String warehouseCode = result.getFirst().get("warehouseCode").toString();
 
         Map<String, Object> requestBody = Map.of("customerOrderNo", UUID.randomUUID().toString(),
                 "warehouseCode", warehouseCode,
                 "details", result);
 
-        httpUtils.call("http://" + host + ":9010/api/execute?apiType=ORDER_OUTBOUND_CREATE", requestBody);
+        apiService.call("api/execute?apiType=ORDER_OUTBOUND_CREATE", requestBody);
     }
-
 
 }

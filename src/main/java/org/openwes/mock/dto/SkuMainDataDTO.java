@@ -1,0 +1,33 @@
+package org.openwes.mock.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.io.Serializable;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class SkuMainDataDTO implements Serializable {
+
+    private Long id;
+
+    private String skuCode;
+
+    private String warehouseCode;
+
+    private String ownerCode;
+
+    private String skuName;
+
+    private String style;
+
+    private String color;
+
+    private String size;
+
+    private String brand;
+
+    private Long version;
+}

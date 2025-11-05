@@ -1,33 +1,35 @@
 package org.openwes.mock.scheduler;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.openwes.mock.utils.HttpUtils;
+import org.openwes.mock.config.MockConfig;
+import org.openwes.mock.service.ApiService;
+import org.openwes.mock.service.DatabaseQueryService;
 import org.openwes.mock.utils.JsonUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class MockOrderAcceptanceScheduler {
 
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+    private final MockConfig mockConfig;
+    private final DatabaseQueryService databaseQueryService;
+    private final ApiService apiService;
 
-    @Autowired
-    private HttpUtils httpUtils;
-
-    @Value("${api.call.host}")
-    private String host;
-
-    @Scheduled(cron = "0/10 * * * * *")
+    @Scheduled(cron = "0/1 * * * * *")
     public void scheduleInboundOrderAcceptance() {
+
+        if (!mockConfig.isOpenMockInboundOrderAcceptance()) {
+            return;
+        }
+
         try {
             processInboundOrderAcceptance();
         } catch (Exception e) {
@@ -35,8 +37,13 @@ public class MockOrderAcceptanceScheduler {
         }
     }
 
-    @Scheduled(cron = "0/10 * * * * *")
+    @Scheduled(cron = "0/5 * * * * *")
     public void scheduleCompleteAcceptOrder() {
+
+        if (!mockConfig.isOpenMockCompleteAcceptOrder()) {
+            return;
+        }
+
         try {
             completeAcceptOrder();
         } catch (Exception e) {
@@ -47,13 +54,7 @@ public class MockOrderAcceptanceScheduler {
     private void processInboundOrderAcceptance() {
         log.info("Processing inbound order acceptance");
 
-        // Query pending inbound plan orders that need acceptance
-        String sql = "SELECT t1.id, warehouse_code, customer_order_no, total_qty, qty_accepted " +
-                "FROM w_inbound_plan_order t1,w_inbound_plan_order_detail t2 " +
-                "WHERE t1.id = t2.inbound_plan_order_id and inbound_plan_order_status in ('NEW','ACCEPTING') AND qty_accepted < qty_restocked-qty_abnormal " +
-                "LIMIT 5";
-
-        List<Map<String, Object>> inboundOrders = jdbcTemplate.queryForList(sql);
+        List<Map<String, Object>> inboundOrders = databaseQueryService.queryInboundOrders();
 
         if (inboundOrders.isEmpty()) {
             log.info("No pending inbound orders found for acceptance");
@@ -64,19 +65,15 @@ public class MockOrderAcceptanceScheduler {
             Long orderId = (Long) order.get("id");
             String warehouseCode = (String) order.get("warehouse_code");
 
-            // Query order details
-            String detailSql = "SELECT id, sku_code, qty_restocked, qty_accepted,qty_abnormal " +
-                    "FROM w_inbound_plan_order_detail " +
-                    "WHERE inbound_plan_order_id = ? AND qty_accepted < qty_restocked-qty_abnormal limit 1";
 
-            List<Map<String, Object>> orderDetails = jdbcTemplate.queryForList(detailSql, orderId);
+            List<Map<String, Object>> orderDetails = databaseQueryService.queryInboundOrderDetails(orderId);
 
             if (orderDetails.isEmpty()) {
                 log.info("No pending details found for order {}", orderId);
                 continue;
             }
 
-            Map<String, Object> detail = orderDetails.iterator().next();
+            Map<String, Object> detail = orderDetails.getFirst();
 
             Long detailId = (Long) detail.get("id");
             String skuCode = (String) detail.get("sku_code");
@@ -90,26 +87,18 @@ public class MockOrderAcceptanceScheduler {
             }
 
             // Query SKU information to get skuId
-            String skuSql = "SELECT id FROM m_sku_main_data WHERE sku_code = ? AND warehouse_code = ?";
-            Long skuId = null;
+            Long skuId;
             try {
-                skuId = jdbcTemplate.queryForObject(skuSql, Long.class, skuCode, warehouseCode);
+                skuId = databaseQueryService.querySkuId(skuCode, warehouseCode);
             } catch (Exception e) {
                 log.warn("SKU not found for code: {}, warehouse: {}", skuCode, warehouseCode);
                 continue;
             }
 
-            // Query available outside containers from database
-            String containerSql = "SELECT id, container_code, container_spec_code, container_slots, " +
-                    "empty_slot_num, warehouse_area_id, warehouse_logic_id " +
-                    "FROM w_container " +
-                    "WHERE container_status = 'OUT_SIDE' AND empty_slot_num > 0 " +
-                    "LIMIT 1";
-
             Map<String, Object> containerInfo = null;
-            List<Map<String, Object>> containers = jdbcTemplate.queryForList(containerSql);
+            List<Map<String, Object>> containers = databaseQueryService.queryContainers();
             if (!containers.isEmpty()) {
-                containerInfo = containers.get(0);
+                containerInfo = containers.getFirst();
             }
 
             if (containerInfo == null) {
@@ -127,7 +116,7 @@ public class MockOrderAcceptanceScheduler {
             // Parse JSON array and find first available slot
             String containerSlotsJson = JsonUtils.obj2String(containerSlotsObj);
             List<Map> slots = JsonUtils.string2List(containerSlotsJson, Map.class);
-            targetContainerSlotCode = (String) slots.get(0).get("containerSlotCode");
+            targetContainerSlotCode = (String) slots.getFirst().get("containerSlotCode");
 
             // Use warehouse area and logic IDs as workstation fallback
             Long workStationId = (Long) containerInfo.get("warehouse_area_id");
@@ -158,31 +147,20 @@ public class MockOrderAcceptanceScheduler {
             batchAttributes.put("operator", "SYSTEM_SCHEDULER");
             acceptanceDetail.put("batchAttributes", batchAttributes);
 
-            try {
-                httpUtils.call("http://" + host + ":9010/inbound/plan/accept", acceptanceDetail);
-                log.info("Successfully called accept API for order {}", orderId);
-            } catch (Exception e) {
-                log.error("Failed to call accept API for order {}", orderId, e);
-            }
+            apiService.call("inbound/plan/accept", acceptanceDetail);
         }
     }
 
     private void completeAcceptOrder() {
         log.info("Processing complete accept order");
-        String sql = "SELECT id " +
-                "FROM w_accept_order " +
-                "WHERE  accept_order_status in ('NEW') " +
-                "LIMIT 1";
-
-        List<Map<String, Object>> acceptOrders = jdbcTemplate.queryForList(sql);
-
+        List<Map<String, Object>> acceptOrders = databaseQueryService.queryAcceptOrders();
         if (acceptOrders.isEmpty()) {
             log.info("No accept orders found");
             return;
         }
 
-        httpUtils.call("http://" + host + ":9010/inbound/accept/completeById?acceptOrderId=" + acceptOrders.iterator().next().get("id"),"");
-
+        String acceptOrderId = acceptOrders.getFirst().get("id").toString();
+        apiService.call("inbound/accept/completeById?acceptOrderId=" + acceptOrderId, "");
     }
 
 }

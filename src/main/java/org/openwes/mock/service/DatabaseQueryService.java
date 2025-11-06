@@ -16,13 +16,19 @@ public class DatabaseQueryService {
     private final JdbcTemplate jdbcTemplate;
 
     public List<Map<String, Object>> querySku() {
+        Long count = countSku();
         int skuNumber = new Random().nextInt(10, 100);
-        int randomOffset = new Random().nextInt(Math.max(1, 2000000 - skuNumber));
+        int randomOffset = new Random().nextInt(Math.max(1, (int) (count - skuNumber)));
 
         String sql = "SELECT warehouse_code as warehouseCode, owner_code as ownerCode, sku_code as skuCode " +
                 "FROM m_sku_main_data LIMIT " + skuNumber + " OFFSET " + randomOffset;
 
         return jdbcTemplate.queryForList(sql);
+    }
+
+    private Long countSku() {
+        String sql = "SELECT COUNT(id) FROM m_sku_main_data";
+        return jdbcTemplate.queryForObject(sql, Long.class);
     }
 
     public List<Map<String, Object>> queryContainerTasks() {
@@ -85,15 +91,29 @@ public class DatabaseQueryService {
 
     public Long querySkuId(String skuCode, String warehouseCode) {
         String skuSql = "SELECT id FROM m_sku_main_data WHERE sku_code = ? AND warehouse_code = ?";
-        Long skuId = null;
-        skuId = jdbcTemplate.queryForObject(skuSql, Long.class, skuCode, warehouseCode);
-        return skuId;
+        return jdbcTemplate.queryForObject(skuSql, Long.class, skuCode, warehouseCode);
     }
 
     public List<Map<String, Object>> queryWarehouses() {
         String sql = "SELECT warehouse_code as warehouseCode FROM m_warehouse_main_data LIMIT 1";
         return jdbcTemplate.queryForList(sql);
     }
+
+    public List<Map<String, Object>> queryFirstOwner() {
+        String sql = "SELECT * FROM m_owner_main_data LIMIT 1";
+        return jdbcTemplate.queryForList(sql);
+    }
+
+    public String queryFirstWarehouseCode() {
+        String sql = "SELECT warehouse_code as warehouseCode FROM m_warehouse_main_data LIMIT 1";
+        return jdbcTemplate.queryForObject(sql, String.class);
+    }
+
+    public Long queryFirstWarehouseAreaId() {
+        String sql = "SELECT id as id FROM w_warehouse_area LIMIT 1";
+        return jdbcTemplate.queryForObject(sql, Long.class);
+    }
+
 
     public List<Map<String, Object>> queryContainerSpecs() {
         String sql = "SELECT container_spec_code as containerSpecCode FROM w_container_spec WHERE container_type = 'CONTAINER' LIMIT 1";
@@ -108,5 +128,11 @@ public class DatabaseQueryService {
     public Long querySkuBatchStockCount() {
         String sql = "SELECT COUNT(id) FROM w_sku_batch_stock t1 WHERE t1.available_qty > 0";
         return jdbcTemplate.queryForObject(sql, Long.class);
+    }
+
+    public List<Long> queryAllWorkStationIds() {
+        String sql = "SELECT id FROM w_work_station";
+        return jdbcTemplate.queryForList(sql).stream().map(item -> (long) item.get("id"))
+                .toList();
     }
 }

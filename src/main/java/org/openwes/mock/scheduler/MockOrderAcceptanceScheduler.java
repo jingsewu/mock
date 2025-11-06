@@ -52,12 +52,11 @@ public class MockOrderAcceptanceScheduler {
     }
 
     private void processInboundOrderAcceptance() {
-        log.info("Processing inbound order acceptance");
 
         List<Map<String, Object>> inboundOrders = databaseQueryService.queryInboundOrders();
 
         if (inboundOrders.isEmpty()) {
-            log.info("No pending inbound orders found for acceptance");
+            log.debug("No pending inbound orders found for acceptance");
             return;
         }
 
@@ -152,10 +151,9 @@ public class MockOrderAcceptanceScheduler {
     }
 
     private void completeAcceptOrder() {
-        log.info("Processing complete accept order");
         List<Map<String, Object>> acceptOrders = databaseQueryService.queryAcceptOrders();
         if (acceptOrders.isEmpty()) {
-            log.info("No accept orders found");
+            log.debug("No accept orders found");
             return;
         }
 

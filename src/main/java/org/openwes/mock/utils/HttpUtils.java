@@ -52,7 +52,7 @@ public class HttpUtils {
             }
 
             String body = response.body().string();
-            log.info("get url: {} response: {}", url, body);
+            log.debug("get url: {} response: {}", url, body);
 
             return body;
         } catch (IOException e) {

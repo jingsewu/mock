@@ -18,8 +18,6 @@ public class SkuDataGenerator {
     private static final String[] CATEGORIES = {"Electronics", "Clothing", "Food", "Books", "Home", "Sports", "Beauty", "Toys", "Automotive", "Health"};
     private static final String[] UNITS = {"PCS", "BOX", "KG", "L", "M", "SET", "PAIR", "CARTON"};
     private static final String[] STYLES = {"Casual", "Formal", "Sport", "Vintage", "Modern", "Classic", "Trendy"};
-    private static final String[] OWNER_CODES = {"owner"};
-    private static final String[] WAREHOUSE_CODES = {"test"};
 
     @Data
     public static class SkuRecord {
@@ -62,7 +60,8 @@ public class SkuDataGenerator {
         private long width;
 
         // Constructor, getters, and setters
-        public SkuRecord() {}
+        public SkuRecord() {
+        }
 
         // Getters and setters (generated or manually created)
         // ... (omitted for brevity, but you should generate them)
@@ -71,13 +70,11 @@ public class SkuDataGenerator {
     /**
      * Generate a random SKU record
      */
-    public static SkuRecord generateSkuRecord() {
+    public static SkuRecord generateSkuRecord(String warehouseCode, String ownerCode) {
         SkuRecord record = new SkuRecord();
 
         long currentTime = System.currentTimeMillis();
         String skuCode = generateRandomSkuCode();
-        String ownerCode = OWNER_CODES[random.nextInt(OWNER_CODES.length)];
-        String warehouseCode = WAREHOUSE_CODES[random.nextInt(WAREHOUSE_CODES.length)];
 
         record.setId(idCounter.getAndIncrement());
         record.setCreateTime(currentTime);

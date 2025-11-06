@@ -1,5 +1,7 @@
 package org.openwes.mock.init.data;
 
+import lombok.RequiredArgsConstructor;
+import org.openwes.mock.service.DatabaseQueryService;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.PreparedStatementCreator;
@@ -17,31 +19,22 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Repository
+@RequiredArgsConstructor
 public class SkuBatchInserter {
 
     private final JdbcTemplate jdbcTemplate;
     private static final int BATCH_SIZE = 5000; // Increased batch size for JdbcTemplate
     private static final int THREAD_POOL_SIZE = 8; // Adjust based on your system
 
-    @Autowired
-    public SkuBatchInserter(DataSource dataSource) {
-        this.jdbcTemplate = new JdbcTemplate(dataSource);
-        configureJdbcTemplate();
-    }
+    private final DatabaseQueryService databaseQueryService;
 
-    private void configureJdbcTemplate() {
-        // Optimize JdbcTemplate for bulk operations
-        jdbcTemplate.setFetchSize(1000);
-        jdbcTemplate.setMaxRows(0); // No limit
-        jdbcTemplate.setQueryTimeout(0); // No timeout for long-running operations
-    }
 
     /**
      * Main method to insert 100M records using parallel processing
      */
     @Transactional
-    public void insert100MRecords() {
-        long totalRecords = 100_000_000L;
+    public void insert100MRecords(int number) {
+        long totalRecords = number;
         long recordsPerThread = totalRecords / THREAD_POOL_SIZE;
 
         System.out.println("Starting insertion of " + totalRecords + " records...");
@@ -100,7 +93,7 @@ public class SkuBatchInserter {
             // Progress reporting
             if (batchStart % (BATCH_SIZE * 100) == 0 || batchStart > endId) {
                 System.out.println("Thread " + threadId + " progress: " +
-                    ((batchStart - startId) * 100 / (endId - startId + 1)) + "%");
+                        ((batchStart - startId) * 100 / (endId - startId + 1)) + "%");
             }
         }
 
@@ -113,8 +106,13 @@ public class SkuBatchInserter {
     private List<SkuDataGenerator.SkuRecord> generateBatchRecords(long startId, int batchSize) {
         List<SkuDataGenerator.SkuRecord> records = new ArrayList<>(batchSize);
 
+        List<Map<String, Object>> maps = databaseQueryService.queryFirstOwner();
+        Map<String, Object> map = maps.get(0);
+        String ownerCode = (String) map.get("owner_code");
+        String warehouseCode = (String) map.get("warehouse_code");
+
         for (int i = 0; i < batchSize; i++) {
-            SkuDataGenerator.SkuRecord record = SkuDataGenerator.generateSkuRecord();
+            SkuDataGenerator.SkuRecord record = SkuDataGenerator.generateSkuRecord(warehouseCode, ownerCode);
             record.setId(startId + i); // Ensure unique IDs
             records.add(record);
         }
@@ -127,18 +125,18 @@ public class SkuBatchInserter {
      */
     private void insertBatch(List<SkuDataGenerator.SkuRecord> records, int threadId) {
         String sql = "INSERT INTO m_sku_main_data (" +
-            "id, create_time, create_user, update_time, update_user, " +
-            "barcode_rule_code, brand, calculate_heat, color, effective_days, " +
-            "enable_effective, enable_sn, gross_weight, heat, height, " +
-            "image_url, length, max_stock, min_stock, net_weight, " +
-            "no_barcode, owner_code, shelf_life, size, sku_attribute_category, " +
-            "sku_attribute_sub_category, sku_code, sku_first_category, sku_name, " +
-            "sku_second_category, sku_third_category, style, unit, version, " +
-            "volume, warehouse_code, width) VALUES (" +
-            "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " +
-            "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " +
-            "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " +
-            "?, ?, ?, ?, ?, ?, ?)";
+                "id, create_time, create_user, update_time, update_user, " +
+                "barcode_rule_code, brand, calculate_heat, color, effective_days, " +
+                "enable_effective, enable_sn, gross_weight, heat, height, " +
+                "image_url, length, max_stock, min_stock, net_weight, " +
+                "no_barcode, owner_code, shelf_life, size, sku_attribute_category, " +
+                "sku_attribute_sub_category, sku_code, sku_first_category, sku_name, " +
+                "sku_second_category, sku_third_category, style, unit, version, " +
+                "volume, warehouse_code, width) VALUES (" +
+                "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " +
+                "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " +
+                "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " +
+                "?, ?, ?, ?, ?, ?, ?)";
 
         int[] results = jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
             @Override
@@ -157,7 +155,7 @@ public class SkuBatchInserter {
         int totalInserted = Arrays.stream(results).sum();
         if (totalInserted != records.size()) {
             System.err.println("Thread " + threadId + ": Batch insertion mismatch. Expected: " +
-                records.size() + ", Actual: " + totalInserted);
+                    records.size() + ", Actual: " + totalInserted);
         }
     }
 
@@ -210,7 +208,7 @@ public class SkuBatchInserter {
      * Utility method to check insertion progress
      */
     public long getInsertedRecordCount() {
-        String sql = "SELECT COUNT(*) FROM m_sku_main_data";
+        String sql = "SELECT COUNT(id) FROM m_sku_main_data";
         return jdbcTemplate.queryForObject(sql, Long.class);
     }
 

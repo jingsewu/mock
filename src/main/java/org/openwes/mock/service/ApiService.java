@@ -14,7 +14,7 @@ public class ApiService {
     @Value("${api.call.host}")
     private String host;
 
-    public void call(String api, Object requestBody) {
-        httpUtils.call("http://" + host + ":9010/" + api, requestBody);
+    public boolean call(String api, Object requestBody) {
+        return httpUtils.call("http://" + host + ":9010/" + api, requestBody);
     }
 }

@@ -11,6 +11,7 @@ import org.openwes.mock.service.ApiService;
 import org.openwes.mock.service.DatabaseQueryService;
 import org.openwes.mock.service.StationService;
 import org.openwes.mock.utils.JsonUtils;
+import org.openwes.mock.utils.ThreadUtils;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
@@ -48,7 +49,9 @@ public class MockContainerArrivedScheduler {
             String containerTaskType = (String) map.get("container_task_type");
 
             if ("OUTBOUND".equals(containerTaskType)) {
+
                 boolean sentResult = sendArrived(containerCode, containerFace, destinations, taskCode);
+                ThreadUtils.sleep(200);
                 if (!sentResult) {
                     log.info("send arrived failed");
                     return;
@@ -111,8 +114,7 @@ public class MockContainerArrivedScheduler {
                 "workStationId", stationIds.getFirst(),
                 "containerDetails", objects);
 
-        apiService.call("api/execute?apiType=CONTAINER_ARRIVE", requestBody);
-        return true;
+        return apiService.call("api/execute?apiType=CONTAINER_ARRIVE", requestBody);
     }
 
     private static boolean isHasContainer(List<WorkLocationExtend> workLocationViews) {

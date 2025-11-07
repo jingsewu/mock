@@ -9,7 +9,6 @@ import org.openwes.mock.constants.WorkStationStatusEnum;
 import org.openwes.mock.dto.WorkStationDTO;
 import org.openwes.mock.dto.WorkStationVO;
 import org.openwes.mock.service.StationService;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ObjectUtils;
@@ -50,17 +49,22 @@ public class MockOrderPickingScheduler {
         workStation.getPutWallArea().getPutWallViews()
                 .forEach(putWallView -> {
                     putWallView.getPutWallSlots().forEach(putWallSlotDTO -> {
+
                         if (putWallSlotDTO.getPutWallSlotStatus() == PutWallSlotStatusEnum.WAITING_BINDING) {
 
                             //bind container
                             stationService.execute(workStation.getWorkStationId(), ApiCodeEnum.INPUT, putWallSlotDTO.getPutWallSlotCode());
                             stationService.execute(workStation.getWorkStationId(), ApiCodeEnum.INPUT, UUID.randomUUID());
+
+                            sleep(200);
                         } else if (putWallSlotDTO.getPutWallSlotStatus() == PutWallSlotStatusEnum.DISPATCH) {
                             stationService.execute(workStation.getWorkStationId(), ApiCodeEnum.TAP_PUT_WALL_SLOT,
                                     Map.of("putWallSlotCode", putWallSlotDTO.getPutWallSlotCode()));
+                            sleep(200);
                         } else if (putWallSlotDTO.getPutWallSlotStatus() == PutWallSlotStatusEnum.WAITING_SEAL) {
                             stationService.execute(workStation.getWorkStationId(), ApiCodeEnum.TAP_PUT_WALL_SLOT,
                                     Map.of("putWallSlotCode", putWallSlotDTO.getPutWallSlotCode()));
+                            sleep(200);
                         } else if (putWallSlotDTO.getPutWallSlotStatus() == PutWallSlotStatusEnum.BOUND) {
 
                             String skuCode = getPickingSkuCode(workStation);
@@ -68,9 +72,19 @@ public class MockOrderPickingScheduler {
                                 return;
                             }
                             stationService.execute(workStation.getWorkStationId(), ApiCodeEnum.SCAN_BARCODE, skuCode);
+                            sleep(200);
                         }
                     });
                 });
+    }
+
+    private void sleep(int i) {
+        try {
+            Thread.sleep(200L);
+        } catch (InterruptedException e) {
+            log.error("sleep interrupt", e);
+            Thread.currentThread().interrupt();
+        }
     }
 
     private String getPickingSkuCode(WorkStationVO workStation) {

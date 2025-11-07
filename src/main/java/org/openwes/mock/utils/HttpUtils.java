@@ -6,18 +6,25 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.util.Map;
+
+import static com.fasterxml.jackson.databind.type.LogicalType.Map;
 
 @Slf4j
 @Component
 public class HttpUtils {
 
     private static final OkHttpClient client = new OkHttpClient.Builder()
+            .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
             .build();
 
     @Value("${api.call.key}")
     private String apiKey;
 
-    public void call(String url, Object requestBody) {
+    public boolean call(String url, Object requestBody) {
 
         RequestBody body = RequestBody.create(JsonUtils.obj2String(requestBody), MediaType.get("application/json"));
 
@@ -29,10 +36,17 @@ public class HttpUtils {
                 .build();
 
         try (Response response = client.newCall(request).execute()) {
-            if (response.body() == null) {
-                log.error("call url: {} response error, response body is null： {}", url, request);
+            if (!response.isSuccessful()) {
+                return false;
+            }
+            if (response.body() == null || response.body().string().isEmpty()) {
+                return true;
             }
             log.info("call url: {} response: {}", url, response.body().string());
+
+            java.util.Map map = JsonUtils.string2Object(response.body().string(), java.util.Map.class);
+            return "0".equals(map.get("code"));
+
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

@@ -12,7 +12,6 @@ import org.springframework.stereotype.Component;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 
 @Component
 @Slf4j
@@ -95,7 +94,7 @@ public class MockOrderAcceptanceScheduler {
             }
 
             Map<String, Object> containerInfo = null;
-            List<Map<String, Object>> containers = databaseQueryService.queryContainers();
+            List<Map<String, Object>> containers = databaseQueryService.queryOutsideRandomContainer();
             if (!containers.isEmpty()) {
                 containerInfo = containers.getFirst();
             }

@@ -80,6 +80,30 @@ public class DatabaseQueryService {
         return jdbcTemplate.queryForList(containerSql);
     }
 
+    public Long countOutsideContainer() {
+        String containerSql = "SELECT count(id) FROM w_container WHERE container_status = 'OUT_SIDE' AND empty_slot_num > 0 ";
+        return jdbcTemplate.queryForObject(containerSql, Long.class);
+    }
+
+    public List<Map<String, Object>> queryOutsideRandomContainer() {
+
+        Long totalCount = countOutsideContainer();
+        if (totalCount == null || totalCount == 0) {
+            return Collections.emptyList();
+        }
+
+        // 计算随机数量和偏移量
+        int randomOffset = new Random().nextInt(Math.max(1, totalCount.intValue() - 1));
+
+        String containerSql = "SELECT id, container_code, container_spec_code, container_slots, " +
+                "empty_slot_num, warehouse_area_id, warehouse_logic_id " +
+                "FROM w_container " +
+                "WHERE container_status = 'OUT_SIDE' AND empty_slot_num > 0 " +
+                "LIMIT " + 1 + " OFFSET " + randomOffset + ";";
+
+        return jdbcTemplate.queryForList(containerSql);
+    }
+
     public List<Map<String, Object>> queryAcceptOrders() {
         String sql = "SELECT id " +
                 "FROM w_accept_order " +

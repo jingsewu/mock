@@ -1,6 +1,7 @@
 package org.openwes.mock.init.data;
 
 import org.openwes.mock.utils.JsonUtils;
+import org.openwes.mock.utils.SnowflakeUtils;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -37,7 +38,7 @@ public class WorkStationInserter {
                 String stationCode = "WS" + String.format("%04d", i + 1);
                 String stationName = "Work Station " + (i + 1);
 
-                ps.setLong(1, generateId());
+                ps.setLong(1, SnowflakeUtils.generateId());
                 ps.setLong(2, currentTime);
                 ps.setString(3, createUser);
                 ps.setLong(4, currentTime);
@@ -91,7 +92,4 @@ public class WorkStationInserter {
         });
     }
 
-    private Long generateId() {
-        return System.currentTimeMillis() + random.nextInt(10000);
-    }
 }

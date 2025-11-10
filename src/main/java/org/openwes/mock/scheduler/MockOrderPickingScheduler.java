@@ -15,7 +15,9 @@ import org.springframework.util.ObjectUtils;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 @Slf4j
@@ -34,15 +36,35 @@ public class MockOrderPickingScheduler {
 
         List<WorkStationDTO> workStations = stationService.getAllWorkStation();
 
-        if (ObjectUtils.isEmpty(workStations) || workStations.stream().noneMatch(v -> v.getWorkStationStatus() != WorkStationStatusEnum.OFFLINE)) {
+        if (ObjectUtils.isEmpty(workStations)
+                || workStations.stream().noneMatch(v -> v.getWorkStationStatus() != WorkStationStatusEnum.OFFLINE)) {
             return;
         }
 
         workStations.forEach(workStationDTO -> {
-            WorkStationVO workStation = stationService.getWorkStationVO(workStationDTO.getId());
-            execute(workStation);
+
+            CompletableFuture.runAsync(() -> {
+
+                WorkStationVO workStation = stationService.getWorkStationVO(workStationDTO.getId());
+
+                scanBarcode(workStation);
+
+                execute(workStation);
+            }).exceptionally(throwable -> {
+                log.error("schedulePicking error", throwable);
+                return null;
+            });
         });
 
+    }
+
+    private void scanBarcode(WorkStationVO workStation) {
+        String skuCode = getPickingSkuCode(workStation);
+        if (ObjectUtils.isEmpty(skuCode)) {
+            return;
+        }
+        stationService.execute(workStation.getWorkStationId(), ApiCodeEnum.SCAN_BARCODE, skuCode);
+        sleep(new Random().nextInt(50, 100));
     }
 
     private void execute(WorkStationVO workStation) {
@@ -56,31 +78,23 @@ public class MockOrderPickingScheduler {
                             stationService.execute(workStation.getWorkStationId(), ApiCodeEnum.INPUT, putWallSlotDTO.getPutWallSlotCode());
                             stationService.execute(workStation.getWorkStationId(), ApiCodeEnum.INPUT, UUID.randomUUID());
 
-                            sleep(200);
+                            sleep(new Random().nextInt(50, 150));
                         } else if (putWallSlotDTO.getPutWallSlotStatus() == PutWallSlotStatusEnum.DISPATCH) {
                             stationService.execute(workStation.getWorkStationId(), ApiCodeEnum.TAP_PUT_WALL_SLOT,
                                     Map.of("putWallSlotCode", putWallSlotDTO.getPutWallSlotCode()));
-                            sleep(200);
+                            sleep(new Random().nextInt(50, 150));
                         } else if (putWallSlotDTO.getPutWallSlotStatus() == PutWallSlotStatusEnum.WAITING_SEAL) {
                             stationService.execute(workStation.getWorkStationId(), ApiCodeEnum.TAP_PUT_WALL_SLOT,
                                     Map.of("putWallSlotCode", putWallSlotDTO.getPutWallSlotCode()));
-                            sleep(200);
-                        } else if (putWallSlotDTO.getPutWallSlotStatus() == PutWallSlotStatusEnum.BOUND) {
-
-                            String skuCode = getPickingSkuCode(workStation);
-                            if (ObjectUtils.isEmpty(skuCode)) {
-                                return;
-                            }
-                            stationService.execute(workStation.getWorkStationId(), ApiCodeEnum.SCAN_BARCODE, skuCode);
-                            sleep(200);
+                            sleep(new Random().nextInt(50, 150));
                         }
                     });
                 });
     }
 
-    private void sleep(int i) {
+    private void sleep(int sleepTimeMillis) {
         try {
-            Thread.sleep(200L);
+            Thread.sleep(sleepTimeMillis);
         } catch (InterruptedException e) {
             log.error("sleep interrupt", e);
             Thread.currentThread().interrupt();

@@ -6,9 +6,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.Map;
-
-import static com.fasterxml.jackson.databind.type.LogicalType.Map;
 
 @Slf4j
 @Component
@@ -37,14 +34,18 @@ public class HttpUtils {
 
         try (Response response = client.newCall(request).execute()) {
             if (!response.isSuccessful()) {
+                log.error("call url: {} response error, response code: {}", url, response.code());
                 return false;
             }
-            if (response.body() == null || response.body().string().isEmpty()) {
+
+            String responseBody;
+            if (response.body() == null || (responseBody = response.body().string()).isEmpty()) {
                 return true;
             }
-            log.info("call url: {} response: {}", url, response.body().string());
 
-            java.util.Map map = JsonUtils.string2Object(response.body().string(), java.util.Map.class);
+            log.info("call url: {} response: {}", url, responseBody);
+
+            java.util.Map map = JsonUtils.string2Object(responseBody, java.util.Map.class);
             return "0".equals(map.get("code"));
 
         } catch (IOException e) {

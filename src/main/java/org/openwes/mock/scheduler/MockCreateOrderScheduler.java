@@ -36,7 +36,7 @@ public class MockCreateOrderScheduler {
         }
     }
 
-    @Scheduled(cron = "0/10 * * * * *")
+    @Scheduled(cron = "0/5 * * * * *")
     public void scheduleCreateOutboundPlanOrder() {
         if (!mockConfig.isOpenMockCreateOutboundPlanOrder()) {
             return;
@@ -75,13 +75,14 @@ public class MockCreateOrderScheduler {
 
         for (Map<String, Object> map : result) {
             int availableQty = (int) map.get("available_qty");
-            map.put("qtyRequired", availableQty == 1 ? 1 : new Random().nextInt(1, availableQty));
+            map.put("qtyRequired", availableQty == 1 ? 1 : new Random().nextInt(1, 100));
         }
 
         String warehouseCode = result.getFirst().get("warehouseCode").toString();
 
         Map<String, Object> requestBody = Map.of("customerOrderNo", UUID.randomUUID().toString(),
                 "warehouseCode", warehouseCode,
+                "shortOutbound", true,
                 "details", result);
 
         apiService.call("api/execute?apiType=ORDER_OUTBOUND_CREATE", requestBody);

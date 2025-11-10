@@ -63,7 +63,6 @@ public class MockOrderAcceptanceScheduler {
             Long orderId = (Long) order.get("id");
             String warehouseCode = (String) order.get("warehouse_code");
 
-
             List<Map<String, Object>> orderDetails = databaseQueryService.queryInboundOrderDetails(orderId);
 
             if (orderDetails.isEmpty()) {

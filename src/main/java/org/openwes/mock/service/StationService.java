@@ -11,6 +11,7 @@ import org.openwes.mock.dto.WorkStationVO;
 import org.openwes.mock.utils.HttpUtils;
 import org.openwes.mock.utils.JsonUtils;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -44,65 +45,81 @@ public class StationService {
         return workStationVO;
     }
 
+    private static final String WORKSTATION_CACHE = "workstations";
 
+    @Cacheable(value = WORKSTATION_CACHE, key = "'all'")
     public List<WorkStationDTO> getAllWorkStation() {
+        log.info("Fetching workstations from database...");
+
         String sql = "select * from w_work_station";
 
         List<Map<String, Object>> result = jdbcTemplate.queryForList(sql);
 
-        return result.stream().map(row -> {
-            WorkStationDTO dto = WorkStationDTO.builder()
-                    .id((Long) row.get("id"))
-                    .stationCode((String) row.get("station_code"))
-                    .stationName((String) row.get("station_name"))
-                    .warehouseCode((String) row.get("warehouse_code"))
-                    .warehouseAreaId((Long) row.get("warehouse_area_id"))
-                    .enable((Boolean) row.get("enable"))
-                    .version((Long) row.get("version"))
-                    .build();
+        return result.stream().map(this::mapToWorkStationDTO)
+                .collect(Collectors.toList());
+    }
 
-            // 处理枚举类型
-            String statusStr = (String) row.get("work_station_status");
-            if (statusStr != null) {
-                dto.setWorkStationStatus(WorkStationStatusEnum.valueOf(statusStr));
-            }
+    // Helper method to map row to DTO
+    private WorkStationDTO mapToWorkStationDTO(Map<String, Object> row) {
+        WorkStationDTO dto = WorkStationDTO.builder()
+                .id((Long) row.get("id"))
+                .stationCode((String) row.get("station_code"))
+                .stationName((String) row.get("station_name"))
+                .warehouseCode((String) row.get("warehouse_code"))
+                .warehouseAreaId((Long) row.get("warehouse_area_id"))
+                .enable((Boolean) row.get("enable"))
+                .version((Long) row.get("version"))
+                .build();
 
-            String modeStr = (String) row.get("work_station_mode");
-            if (modeStr != null) {
-                dto.setWorkStationMode(WorkStationModeEnum.valueOf(modeStr));
-            }
+        // 处理枚举类型
+        processEnums(row, dto);
 
-            // 处理JSON字段 - allow_work_station_modes
-            String allowModesJson = (String) row.get("allow_work_station_modes");
-            if (allowModesJson != null && !allowModesJson.isEmpty()) {
-                try {
-                    List<String> modeStrList = JsonUtils.string2Object(allowModesJson, List.class);
-                    if (modeStrList != null) {
-                        List<WorkStationModeEnum> modes = modeStrList.stream()
-                                .map(WorkStationModeEnum::valueOf)
-                                .collect(Collectors.toList());
-                        dto.setAllowWorkStationModes(modes);
-                    }
-                } catch (Exception e) {
-                    // 处理JSON解析异常
-                    log.warn("Failed to parse allow_work_station_modes for station: {}",
-                            dto.getStationCode(), e);
+        // 处理JSON字段
+        processJsonFields(row, dto);
+
+        return dto;
+    }
+
+    private void processEnums(Map<String, Object> row, WorkStationDTO dto) {
+        String statusStr = (String) row.get("work_station_status");
+        if (statusStr != null) {
+            dto.setWorkStationStatus(WorkStationStatusEnum.valueOf(statusStr));
+        }
+
+        String modeStr = (String) row.get("work_station_mode");
+        if (modeStr != null) {
+            dto.setWorkStationMode(WorkStationModeEnum.valueOf(modeStr));
+        }
+    }
+
+    private void processJsonFields(Map<String, Object> row, WorkStationDTO dto) {
+        // 处理 allow_work_station_modes
+        String allowModesJson = (String) row.get("allow_work_station_modes");
+        if (allowModesJson != null && !allowModesJson.isEmpty()) {
+            try {
+                List<String> modeStrList = JsonUtils.string2Object(allowModesJson, List.class);
+                if (modeStrList != null) {
+                    List<WorkStationModeEnum> modes = modeStrList.stream()
+                            .map(WorkStationModeEnum::valueOf)
+                            .collect(Collectors.toList());
+                    dto.setAllowWorkStationModes(modes);
                 }
+            } catch (Exception e) {
+                log.warn("Failed to parse allow_work_station_modes for station: {}",
+                        dto.getStationCode(), e);
             }
+        }
 
-            // 处理JSON字段 - position
-            String positionJson = (String) row.get("position");
-            if (positionJson != null && !positionJson.isEmpty()) {
-                try {
-                    PositionDTO position = JsonUtils.string2Object(positionJson, PositionDTO.class);
-                    dto.setPosition(position);
-                } catch (Exception e) {
-                    log.warn("Failed to parse position for station: {}", dto.getStationCode(), e);
-                }
+        // 处理 position
+        String positionJson = (String) row.get("position");
+        if (positionJson != null && !positionJson.isEmpty()) {
+            try {
+                PositionDTO position = JsonUtils.string2Object(positionJson, PositionDTO.class);
+                dto.setPosition(position);
+            } catch (Exception e) {
+                log.warn("Failed to parse position for station: {}", dto.getStationCode(), e);
             }
-
-            return dto;
-        }).collect(Collectors.toList());
+        }
     }
 
     public void execute(Long workStationId, ApiCodeEnum apiCodeEnum, Object putWallSlotCode) {

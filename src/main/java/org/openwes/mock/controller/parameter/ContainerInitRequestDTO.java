@@ -10,6 +10,9 @@ public class ContainerInitRequestDTO {
     private String warehouseCode;
     @Hidden
     private String containerSpecCode;
+    
+    @NotNull
+    private String containerType;
 
     @NotEmpty
     private String containerCodePrefix = "AAA";

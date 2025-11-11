@@ -33,7 +33,7 @@ public class DatabaseQueryService {
 
     public List<Map<String, Object>> queryContainerTasks() {
         String sql = "select container_code,container_face,destinations,task_code,container_task_type from e_container_task " +
-                "where task_status = 'NEW' ";
+                "where task_status = 'NEW' limit 100";
         return jdbcTemplate.queryForList(sql);
     }
 
@@ -55,10 +55,9 @@ public class DatabaseQueryService {
     }
 
     public List<Map<String, Object>> queryInboundOrders() {
-        String sql = "SELECT t1.id, warehouse_code, customer_order_no, total_qty, qty_accepted " +
-                "FROM w_inbound_plan_order t1,w_inbound_plan_order_detail t2 " +
-                "WHERE t1.id = t2.inbound_plan_order_id and inbound_plan_order_status in ('NEW','ACCEPTING') " +
-                "AND qty_accepted < qty_restocked-qty_abnormal " +
+        String sql = "SELECT t1.id, warehouse_code, customer_order_no " +
+                "FROM w_inbound_plan_order t1 " +
+                "WHERE inbound_plan_order_status in ('NEW','ACCEPTING') " +
                 "LIMIT 5";
 
         return jdbcTemplate.queryForList(sql);

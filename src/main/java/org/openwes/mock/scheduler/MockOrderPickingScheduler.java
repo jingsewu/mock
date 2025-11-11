@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 @Component
 @Slf4j
@@ -26,6 +27,7 @@ public class MockOrderPickingScheduler {
 
     private final StationService stationService;
     private final MockConfig mockConfig;
+    private final Executor workStationExecutor;
 
     @Scheduled(cron = "0/1 * * * * *")
     public void schedulePicking() {
@@ -50,7 +52,7 @@ public class MockOrderPickingScheduler {
                 scanBarcode(workStation);
 
                 execute(workStation);
-            }).exceptionally(throwable -> {
+            }, workStationExecutor).exceptionally(throwable -> {
                 log.error("schedulePicking error", throwable);
                 return null;
             });

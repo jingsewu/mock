@@ -1,6 +1,7 @@
 package org.openwes.mock.service;
 
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.ObjectUtils;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -14,7 +15,9 @@ import java.util.Random;
 public class DatabaseQueryService {
 
     private final JdbcTemplate jdbcTemplate;
-    private Long countSku = 0L;
+    private volatile Long countSku = 0L;
+
+    private List<Map<String, Object>> containers = null;
 
     public List<Map<String, Object>> querySku() {
         Long count = countSku();
@@ -65,7 +68,7 @@ public class DatabaseQueryService {
         String sql = "SELECT t1.id, warehouse_code, customer_order_no " +
                 "FROM w_inbound_plan_order t1 " +
                 "WHERE inbound_plan_order_status in ('NEW','ACCEPTING') " +
-                "LIMIT 5";
+                "LIMIT 30";
 
         return jdbcTemplate.queryForList(sql);
     }
@@ -77,20 +80,25 @@ public class DatabaseQueryService {
         return jdbcTemplate.queryForList(detailSql, orderId);
     }
 
-    public List<Map<String, Object>> queryContainers() {
+    public synchronized List<Map<String, Object>> queryContainers() {
+
+        if (ObjectUtils.isNotEmpty(containers)) {
+            return containers;
+        }
+
         String containerSql = "SELECT id, container_code, container_spec_code, container_slots, " +
                 "empty_slot_num, warehouse_area_id, warehouse_logic_id " +
                 "FROM w_container " +
-                "WHERE container_status = 'OUT_SIDE' AND empty_slot_num > 0 " +
-                "LIMIT 1";
-        return jdbcTemplate.queryForList(containerSql);
+                "WHERE container_status = 'OUT_SIDE' AND empty_slot_num > 0 ";
+        containers = jdbcTemplate.queryForList(containerSql);
+        return containers;
     }
 
     public List<Map<String, Object>> queryAcceptOrders() {
         String sql = "SELECT id " +
                 "FROM w_accept_order " +
                 "WHERE  accept_order_status in ('NEW') " +
-                "LIMIT 1";
+                "LIMIT 100";
         return jdbcTemplate.queryForList(sql);
 
     }

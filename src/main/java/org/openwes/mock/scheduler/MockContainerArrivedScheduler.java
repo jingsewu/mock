@@ -51,7 +51,7 @@ public class MockContainerArrivedScheduler {
             if ("OUTBOUND".equals(containerTaskType)) {
 
                 boolean sentResult = sendArrived(containerCode, containerFace, destinations, taskCode);
-                ThreadUtils.sleep(200);
+                ThreadUtils.sleep(100);
                 if (!sentResult) {
                     log.info("send arrived failed");
                     return;

@@ -4,14 +4,18 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.openwes.mock.config.MockConfig;
 import org.openwes.mock.service.ApiService;
+import org.openwes.mock.service.ContainerService;
 import org.openwes.mock.service.DatabaseQueryService;
 import org.openwes.mock.utils.JsonUtils;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.Random;
 
 @Component
 @Slf4j
@@ -21,6 +25,7 @@ public class MockOrderAcceptanceScheduler {
     private final MockConfig mockConfig;
     private final DatabaseQueryService databaseQueryService;
     private final ApiService apiService;
+    private final ContainerService containerService;
 
     @Scheduled(cron = "0/1 * * * * *")
     public void scheduleInboundOrderAcceptance() {
@@ -31,20 +36,6 @@ public class MockOrderAcceptanceScheduler {
 
         try {
             processInboundOrderAcceptance();
-        } catch (Exception e) {
-            log.error("Error processing inbound order acceptance", e);
-        }
-    }
-
-    @Scheduled(cron = "0/3 * * * * *")
-    public void scheduleCompleteAcceptOrder() {
-
-        if (!mockConfig.isOpenMockCompleteAcceptOrder()) {
-            return;
-        }
-
-        try {
-            completeAcceptOrder();
         } catch (Exception e) {
             log.error("Error processing inbound order acceptance", e);
         }
@@ -62,6 +53,7 @@ public class MockOrderAcceptanceScheduler {
         for (Map<String, Object> order : inboundOrders) {
             Long orderId = (Long) order.get("id");
             String warehouseCode = (String) order.get("warehouse_code");
+
 
             List<Map<String, Object>> orderDetails = databaseQueryService.queryInboundOrderDetails(orderId);
 
@@ -92,8 +84,8 @@ public class MockOrderAcceptanceScheduler {
                 continue;
             }
 
+            List<Map<String, Object>> containers = getRandomContainer();
             Map<String, Object> containerInfo = null;
-            List<Map<String, Object>> containers = databaseQueryService.queryOutsideRandomContainer();
             if (!containers.isEmpty()) {
                 containerInfo = containers.getFirst();
             }
@@ -145,6 +137,32 @@ public class MockOrderAcceptanceScheduler {
             acceptanceDetail.put("batchAttributes", batchAttributes);
 
             apiService.call("inbound/plan/accept", acceptanceDetail);
+        }
+    }
+
+    private List<Map<String, Object>> getRandomContainer() {
+
+        List<Map<String, Object>> containers = containerService.getAllOutsideContainers();
+
+        if (containers.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        int randomIndex = ThreadLocalRandom.current().nextInt(containers.size());
+        return Collections.singletonList(containers.get(randomIndex));
+    }
+
+    @Scheduled(cron = "0/3 * * * * *")
+    public void scheduleCompleteAcceptOrder() {
+
+        if (!mockConfig.isOpenMockCompleteAcceptOrder()) {
+            return;
+        }
+
+        try {
+            completeAcceptOrder();
+        } catch (Exception e) {
+            log.error("Error processing complete accept order", e);
         }
     }
 

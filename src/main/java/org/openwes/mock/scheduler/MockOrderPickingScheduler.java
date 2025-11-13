@@ -49,9 +49,9 @@ public class MockOrderPickingScheduler {
 
                 WorkStationVO workStation = stationService.getWorkStationVO(workStationDTO.getId());
 
+                execute(workStation);
                 scanBarcode(workStation);
 
-                execute(workStation);
             }, workStationExecutor).exceptionally(throwable -> {
                 log.error("schedulePicking error", throwable);
                 return null;
@@ -66,7 +66,7 @@ public class MockOrderPickingScheduler {
             return;
         }
         stationService.execute(workStation.getWorkStationId(), ApiCodeEnum.SCAN_BARCODE, skuCode);
-        sleep(new Random().nextInt(50, 100));
+        sleep(new Random().nextInt(10, 50));
     }
 
     private void execute(WorkStationVO workStation) {
@@ -80,15 +80,12 @@ public class MockOrderPickingScheduler {
                             stationService.execute(workStation.getWorkStationId(), ApiCodeEnum.INPUT, putWallSlotDTO.getPutWallSlotCode());
                             stationService.execute(workStation.getWorkStationId(), ApiCodeEnum.INPUT, UUID.randomUUID());
 
-                            sleep(new Random().nextInt(50, 150));
                         } else if (putWallSlotDTO.getPutWallSlotStatus() == PutWallSlotStatusEnum.DISPATCH) {
                             stationService.execute(workStation.getWorkStationId(), ApiCodeEnum.TAP_PUT_WALL_SLOT,
                                     Map.of("putWallSlotCode", putWallSlotDTO.getPutWallSlotCode()));
-                            sleep(new Random().nextInt(50, 150));
                         } else if (putWallSlotDTO.getPutWallSlotStatus() == PutWallSlotStatusEnum.WAITING_SEAL) {
                             stationService.execute(workStation.getWorkStationId(), ApiCodeEnum.TAP_PUT_WALL_SLOT,
                                     Map.of("putWallSlotCode", putWallSlotDTO.getPutWallSlotCode()));
-                            sleep(new Random().nextInt(50, 150));
                         }
                     });
                 });

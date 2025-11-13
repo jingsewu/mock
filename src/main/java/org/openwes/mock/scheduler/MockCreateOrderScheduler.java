@@ -22,7 +22,7 @@ public class MockCreateOrderScheduler {
     private final ApiService apiService;
     private final MockConfig mockConfig;
 
-    @Scheduled(cron = "0/30 * * * * *")
+    @Scheduled(cron = "0/10 * * * * *")
     public void scheduleCreateInboundPlanOrder() {
 
         if (!mockConfig.isOpenMockCreateInboundPlanOrder()) {

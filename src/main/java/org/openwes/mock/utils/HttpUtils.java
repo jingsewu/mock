@@ -38,8 +38,9 @@ public class HttpUtils {
                 return false;
             }
 
-            String responseBody;
+            String responseBody = "";
             if (response.body() == null || (responseBody = response.body().string()).isEmpty()) {
+                log.info("call url: {} response: {}", url, responseBody);
                 return true;
             }
 
